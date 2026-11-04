@@ -1,0 +1,25 @@
+seed: 42
+n_classes: 4
+class_names: [soil, bedrock, sand, big_rock]
+ignore_index: 255
+img_size: 512
+
+data:
+  train_img_dir: data/raw/ai4mars-dataset-merged-0.6/msl/ncam/images/edr
+  train_mask_dir: data/raw/ai4mars-dataset-merged-0.6/msl/ncam/labels/train
+  mask_suffix: ""
+  splits_dir: data/splits
+
+model:
+  arch: Unet
+  encoder: resnet34
+  encoder_weights: imagenet
+
+train:
+  epochs: 30
+  batch_size: 8
+  lr: 3.0e-4
+  weight_decay: 1.0e-4
+  num_workers: 4
+  class_weights: [0.369, 0.317, 0.7, 2.614]
+  dice_weight: 0.5
