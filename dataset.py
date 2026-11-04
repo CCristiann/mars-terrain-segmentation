@@ -29,7 +29,7 @@ class MarsDataset(Dataset):
         if mask is None:
             raise FileNotFoundError(mask_path)
         if mask.ndim != 2 or mask.shape != image.shape[:2]:
-            raise ValueError(f"maschera incoerente: {mask_path} {mask.shape}")
+            raise ValueError(f"mask does not match image: {mask_path} {mask.shape}")
 
         out = self.transform(image=image, mask=mask)
         return out["image"], out["mask"].long()

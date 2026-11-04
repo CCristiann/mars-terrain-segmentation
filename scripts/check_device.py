@@ -9,5 +9,5 @@ print(
 )
 
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-x = torch.randn(2048, 20248, device=device)
-print("matmul su", device, "->", (x @ x).mean().item())
+x = torch.randn(2048, 2048, device=device)
+print("matmul on", device, "->", (x @ x).mean().item())

@@ -9,8 +9,8 @@ import numpy as np
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--root", type=Path, required=True)
-    p.add_argument("--mask-glob", default=None, help="glob relativo a --root che seleziona le maschere")
-    p.add_argument("--n", type=int, default=500, help="maschere da campionare")
+    p.add_argument("--mask-glob", default=None, help="glob relative to --root that selects the masks")
+    p.add_argument("--n", type=int, default=500, help="number of masks to sample")
     a = p.parse_args()
     
     counts = Counter()
@@ -26,7 +26,7 @@ def main():
         return
 
     files = sorted(a.root.glob(a.mask_glob))
-    print(f"\nMaschere trovate: {len(files)}")
+    print(f"\nMasks found: {len(files)}")
     random.seed(0)
     files = random.sample(files, min(a.n, len(files)))
 
@@ -35,24 +35,24 @@ def main():
     for f in files:
         m = cv2.imread(str(f), cv2.IMREAD_UNCHANGED)
         if m is None:
-            print("Illegibile:", f)
+            print("Unreadable:", f)
             continue
         formats[(m.shape, str(m.dtype))] += 1
         if m.ndim != 2:
-            print("Maschera non a canale singolo:", f, m.shape)
+            print("Mask is not single-channel:", f, m.shape)
             continue
         hist += np.bincount(m.ravel(), minlength=256)
 
-    print("\nFormati (shape, dtype):", dict(formats))
+    print("\nFormats (shape, dtype):", dict(formats))
     total = hist.sum()
-    print("\nvalore pixel      %")
+    print("\npixel value    pixels       %")
     for v in np.nonzero(hist)[0]:
         print(f"{v:6d}  {hist[v]:12d}  {100 * hist[v] / total:6.2f}")
     
     freq = hist[:4] / hist[:4].sum()
     w = 1 / np.sqrt(freq)
     w = w / w.mean()
-    print("\nclass_weights suggeriti per config.yaml:", np.round(w, 3).tolist())
+    print("\nsuggested class_weights for config.yaml:", np.round(w, 3).tolist())
 
 
 if __name__ == "__main__":

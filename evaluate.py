@@ -38,7 +38,7 @@ def main():
     names = sorted(
         p.name
         for p in args.img_dir.iterdir()
-        if (args.mask_dir / f"{p.stem} {args.mask_suffix}.png").exists()
+        if (args.mask_dir / f"{p.stem}{args.mask_suffix}.png").exists()
     )
 
     ds = MarsDataset(args.img_dir, args.mask_dir, names, get_val_transforms(cfg["img_size"]), args.mask_suffix)
