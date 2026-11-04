@@ -5,3 +5,4 @@ outputs/
 *.pt
 *.pth
 .DS_Store
+*.zip

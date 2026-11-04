@@ -1,3 +1,12 @@
+"""Split the labelled images into train.txt and val.txt.
+
+Why not a simple random split? The rover takes many almost identical pictures within
+a few seconds. If similar images ended up in both splits, the validation score would
+look better than it really is (data leakage). So images are grouped by acquisition time
+(blocks of --group-sols Martian days) and whole groups go to one split or the other.
+
+Images whose mask is entirely 255 (no label at all) are discarded: there is nothing to learn.
+"""
 import argparse
 import random
 import re

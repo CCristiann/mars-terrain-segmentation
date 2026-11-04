@@ -1,25 +1,25 @@
-seed: 42
+seed: 42                                 # fixes the random numbers: runs are repeatable
 n_classes: 4
 class_names: [soil, bedrock, sand, big_rock]
-ignore_index: 255
-img_size: 512
+ignore_index: 255                        # mask value meaning "no label": ignored by loss and metrics
+img_size: 512                            # images (1024x1024) are resized to this before the model
 
 data:
   train_img_dir: data/raw/ai4mars-dataset-merged-0.6/msl/ncam/images/edr
   train_mask_dir: data/raw/ai4mars-dataset-merged-0.6/msl/ncam/labels/train
   mask_suffix: ""
-  splits_dir: data/splits
+  splits_dir: data/splits                # train.txt / val.txt, made by scripts/make_splits.py
 
 model:
-  arch: Unet
-  encoder: resnet34
-  encoder_weights: imagenet
+  arch: Unet                             # encoder-decoder network for per-pixel labels
+  encoder: resnet34                      # the part that extracts features from the image
+  encoder_weights: imagenet              # start from a network pre-trained on ImageNet
 
 train:
-  epochs: 30
-  batch_size: 8
-  lr: 3.0e-4
-  weight_decay: 1.0e-4
-  num_workers: 4
-  class_weights: [0.369, 0.317, 0.7, 2.614]
-  dice_weight: 0.5
+  epochs: 5                              # quick run (~1 hour on the MacBook). Use ~20 for a full run.
+  batch_size: 8                          # images processed together in each step
+  lr: 3.0e-4                             # learning rate: size of each weight update
+  weight_decay: 1.0e-4                   # small penalty on big weights, helps against overfitting
+  num_workers: 4                         # processes that load images in parallel
+  class_weights: [0.369, 0.317, 0.7, 2.614]   # rare classes (big_rock) count more in the loss
+  dice_weight: 0.5                       # how much the Dice loss counts next to CrossEntropy

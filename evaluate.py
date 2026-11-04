@@ -1,14 +1,23 @@
+"""Evaluate a trained run on ANY folder of images + masks (generic and simple).
+
+Images and masks are both resized to the training size (e.g. 512), exactly like the validation.
+For the official test-set numbers (full resolution, 3 expert variants) use evaluate_test.py.
+
+Example:
+    uv run python evaluate.py --run-dir outputs/quick \
+        --img-dir data/raw/ai4mars-dataset-merged-0.6/msl/ncam/images/edr \
+        --mask-dir data/raw/ai4mars-dataset-merged-0.6/msl/ncam/labels/test/masked-gold-min3-100agree \
+        --mask-suffix _merged
+"""
 import argparse
 from pathlib import Path
 
-import segmentation_models_pytorch as smp
-import torch
-import yaml
 from torch.utils.data import DataLoader
 
 from augmentation import get_val_transforms
 from dataset import MarsDataset
 from metrics import evaluate
+from utils import get_device, load_trained_model
 
 
 def main():
@@ -19,22 +28,10 @@ def main():
     ap.add_argument("--mask-suffix", default="")
     args = ap.parse_args()
 
-    cfg = yaml.safe_load(open(args.run_dir / "config.yaml"))
-    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+    device = get_device()
+    model, cfg = load_trained_model(args.run_dir, device)
 
-    m = cfg["model"]
-    model = getattr(smp, m["arch"])(
-        encoder_name=m["encoder"],
-        encoder_weights=None,
-        in_channels=3,
-        classes=cfg["n_classes"],
-    )
-
-    model.load_state_dict(
-        torch.load(args.run_dir / "best.pt", map_location=device, weights_only=True)
-    )
-    model.to(device)
-
+    # keep only the images that have a mask
     names = sorted(
         p.name
         for p in args.img_dir.iterdir()
@@ -47,7 +44,6 @@ def main():
     cm = evaluate(model, loader, device, cfg["n_classes"])
     for n, v in zip(cfg["class_names"], cm.iou().tolist()):
         print(f"IoU {n:10s} {v:.4f}")
-    
     print(f"mIoU {cm.miou():.4f}")
 
 
