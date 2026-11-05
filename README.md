@@ -77,8 +77,8 @@ The code uses an NVIDIA GPU, Apple GPU (MPS) or CPU, whichever is available.
 
 ## Limitations and next steps
 
-- **Big rock is weak** (IoU 0.1–0.3): it is under 1% of the pixels, and the model also marks distant ridges and rover parts as big rock, which lowers IoU even though most real rocks are found.
-- Only 5 epochs and no hyperparameter search. Next: a longer run, a lower big-rock class weight, ignoring the area beyond 30 m at prediction time.
+- **Big rock is weak** (IoU 0.1–0.3) because of false positives, not missed rocks: the model finds 68–100% of the real big-rock pixels, but also labels 2–3% of bedrock as big rock. Bedrock is about half of the labelled pixels and big rock under 1%, so these false positives outnumber the correct ones.
+- Only 5 epochs and no hyperparameter search. Next: a longer run, a lower big-rock class weight, and losses that penalise false positives more (e.g. Tversky, Lovász).
 - Predictions on unlabelled areas (sky, rover) are meaningless, as the model never gets a training signal there.
 
 ## Learning Notes
