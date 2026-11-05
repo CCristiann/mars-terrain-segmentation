@@ -82,7 +82,7 @@ The code uses an NVIDIA GPU, Apple GPU (MPS) or CPU, whichever is available.
 - Predictions on unlabelled areas (sky, rover) are meaningless, as the model never gets a training signal there.
 
 ## Learning Notes
-![Encoder levels](outputs/explain/encoder_levels.png)
+![Encoder levels](docs/encoder_levels.png)
 ## Credits
 
 Dataset: **AI4Mars**, by NASA JPL and the Zooniverse community labelers. Check the dataset page for its license and citation terms.
