@@ -22,4 +22,11 @@ train:
   weight_decay: 1.0e-4                   # small penalty on big weights, helps against overfitting
   num_workers: 4                         # processes that load images in parallel
   class_weights: [0.369, 0.317, 0.7, 2.614]   # rare classes (big_rock) count more in the loss
+  loss: ce_dice                       # ce_dice (baseline) or ce_tversky
   dice_weight: 0.5                       # how much the Dice loss counts next to CrossEntropy
+  tversky_weight: 0.5                    # how much the Tversky loss counts next to CrossEntropy
+  tversky_alpha: 0.7                     # Tversky: penalty on false positives
+  tversky_beta: 0.3                      # Tversky: penalty on false negatives
+  lovasz_weight: 0.5                     # how much the Lovasz loss counts next to the pixel term
+  focal_gamma: 2.0                       # focal: how much easy pixels are down-weighted (0 = plain CE)
+  amp: true                              # midex precision on NVIDIA GPUs (ignored on the Mac)                

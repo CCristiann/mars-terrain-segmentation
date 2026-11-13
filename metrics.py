@@ -1,4 +1,5 @@
 """How we measure the quality of the segmentation: confusion matrix, IoU and mIoU."""
+
 import torch
 
 
@@ -39,7 +40,18 @@ class ConfusionMatrix:
     def report(self, class_names):
         """Readable text: per-class IoU and the confusion matrix (rows = true class, in %)."""
         lines = [
-            "IoU: " + "  ".join(f"{n} {v:.3f}" for n, v in zip(class_names, self.iou().tolist())),
+            "IoU: "
+            + "  ".join(
+                f"{n} {v:.3f}" for n, v in zip(class_names, self.iou().tolist())
+            ),
+            "Precision: "
+            + "  ".join(
+                f"{n} {v:.3f}" for n, v in zip(class_names, self.precision().tolist())
+            ),
+            "Recall:    "
+            + "  ".join(
+                f"{n} {v:.3f}" for n, v in zip(class_names, self.recall().tolist())
+            ),
             f"mIoU: {self.miou():.4f}",
             "",
             "Confusion matrix (row = true class, column = predicted, % of the row):",
@@ -49,6 +61,20 @@ class ConfusionMatrix:
         for name, row in zip(class_names, rows.tolist()):
             lines.append(f"{name:>10s}" + "".join(f"{100 * v:10.1f}" for v in row))
         return "\n".join(lines)
+
+    def precision(self):
+        """Of the pixels PREDICTED as class c, how many really are c? Low = many false positives."""
+
+        tp = self.mat.diag().float()
+        pred = self.mat.sum(0).float()  # column sum = predicted as c
+        return torch.where(pred > 0, tp / pred, torch.full_like(tp, float("nan")))
+
+    def recall(self):
+        """Of the pixels that REALLY are class c, how many did we find? Low = many missed."""
+
+        tp = self.mat.diag().float()
+        true = self.mat.sum(1).float()  # row sum = truly c
+        return torch.where(true > 0, tp / true, torch.full_like(tp, float("nan")))
 
 
 @torch.no_grad()  # no gradients needed: we only measure, we do not learn
@@ -64,5 +90,7 @@ def evaluate(model, loader, device, n_classes, max_batches=None):
         if max_batches is not None and i >= max_batches:
             break
         logits = model(images.to(device))  # (batch, classes, H, W) scores
-        cm.update(logits.argmax(1), masks)  # predicted class = the class with the highest score
+        cm.update(
+            logits.argmax(1), masks
+        )  # predicted class = the class with the highest score
     return cm

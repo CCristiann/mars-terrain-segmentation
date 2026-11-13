@@ -46,3 +46,16 @@ def load_trained_model(run_dir, device):
     model = build_model(cfg, encoder_weights=None)  # the real weights come from best.pt
     model.load_state_dict(torch.load(run_dir / "best.pt", map_location=device, weights_only=True))
     return model.to(device).eval(), cfg
+
+def mixed_precision(device, enabled):
+    """16-bit type for the forward pass, or None for full 32-bit. Only on CUDA."""
+
+    if not enabled or device.type != "cuda":
+        return None
+    return torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+
+
+def autocast(device, dtype):
+    """Run the code inside with `dtype` numbers; does nothing when dtype is None."""
+
+    return torch.autocast(device_type=device.type, dtype=dtype, enabled=dtype is not None)
