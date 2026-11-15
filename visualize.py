@@ -2,6 +2,7 @@
 
 Check data/augmentations:  uv run python visualize.py --split train
 Check predictions:         uv run python visualize.py --split val --run outputs/quick
+Chosen images:             uv run python visualize.py --split val --run outputs/quick --names A.JPG B.JPG
 """
 import argparse
 import random
@@ -39,12 +40,16 @@ def main():
     ap.add_argument("--n", type=int, default=6, help="number of images")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--names", nargs="+", default=None, help="show these images instead of a random sample")
     args = ap.parse_args()
 
     cfg = yaml.safe_load(open(args.config))
     d, size = cfg["data"], cfg["img_size"]
     names = read_names(Path(d["splits_dir"]) / f"{args.split}.txt")
-    names = random.Random(args.seed).sample(names, args.n)
+    if args.names:
+        names, args.n = args.names, len(args.names)
+    else:
+        names = random.Random(args.seed).sample(names, args.n)
     # the train split uses the random augmentations: we see exactly what the model sees
     tf = get_train_transforms(size) if args.split == "train" else get_val_transforms(size)
     ds = MarsDataset(d["train_img_dir"], d["train_mask_dir"], names, tf, d["mask_suffix"])

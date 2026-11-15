@@ -10,6 +10,7 @@ import matplotlib
 
 matplotlib.use("Agg")  # draw to a file, no window needed
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 
 # same colours as visualize.py
 COLORS = {"soil": "#b58654", "bedrock": "#4682b4", "sand": "#f0d25a", "big_rock": "#dc3232"}
@@ -25,7 +26,7 @@ def main():
         rows = list(csv.DictReader(f))
     epochs = [int(r["epoch"]) for r in rows]
 
-    fig, (ax_loss, ax_iou) = plt.subplots(1, 2, figsize=(10, 3.6))
+    fig, (ax_loss, ax_iou) = plt.subplots(1, 2, figsize=(11, 4))
 
     # left: the training loss should go down
     ax_loss.plot(epochs, [float(r["train_loss"]) for r in rows], marker="o", color="#444444")
@@ -39,11 +40,16 @@ def main():
     ax_iou.set_title("Validation IoU")
     ax_iou.set_xlabel("epoch")
     ax_iou.set_ylim(0, 1)
-    ax_iou.legend(loc="lower right", fontsize=8)
 
+    # markers only on short runs; at most ~10 integer ticks so long runs stay readable
+    marker_size = 4 if len(epochs) <= 10 else 0
     for ax in (ax_loss, ax_iou):
-        ax.set_xticks(epochs)
+        for line in ax.get_lines():
+            line.set_markersize(marker_size)
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=10, integer=True))
+        ax.set_xlim(min(epochs) - 0.5, max(epochs) + 0.5)
         ax.grid(alpha=0.3)
+    ax_iou.legend(loc="lower right", fontsize=8)  # after the marker change, so it matches the lines
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
