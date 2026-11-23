@@ -1,11 +1,29 @@
 # Mars Terrain Segmentation
 
+[![Demo](https://img.shields.io/badge/%F0%9F%A4%97%20Demo-Spaces-yellow)](https://huggingface.co/spaces/ccristiann/mars-terrain-segmentation)
+[![Model](https://img.shields.io/badge/%F0%9F%A4%97%20Model-Hub-orange)](https://huggingface.co/ccristiann/mars-terrain-unet-resnet34)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A U-Net that labels every pixel of a Mars rover photo as **soil**, **bedrock**, **sand** or **big rock**.
 Trained on Curiosity NavCam images from the [AI4Mars](https://www.zooniverse.org/projects/hiro-ono/ai4mars) dataset, in PyTorch.
 
 ![Predictions on validation images](docs/predictions.png)
 
 *Left to right: image, human labels, model prediction. Uncoloured pixels in the labels are unlabelled (rover, far away, ambiguous): the model is never trained or scored there.*
+
+## Try it
+
+- **[Live demo](https://huggingface.co/spaces/ccristiann/mars-terrain-segmentation)**: pick an example or drop your own image.
+  The model is exported to ONNX and runs **in the browser** (ONNX Runtime Web, WebGPU with WASM fallback), so images are never uploaded.
+- **[Model on the Hugging Face Hub](https://huggingface.co/ccristiann/mars-terrain-unet-resnet34)**: weights (`safetensors`), ONNX file and model card.
+
+```python
+import segmentation_models_pytorch as smp
+
+model = smp.from_pretrained("ccristiann/mars-terrain-unet-resnet34").eval()
+```
+
+Input preprocessing (ImageNet normalisation, resize to 512×512) is described in the model card.
 
 ## Results
 
@@ -111,6 +129,8 @@ The code uses an NVIDIA GPU, Apple GPU (MPS) or CPU, whichever is available.
 | `metrics.py` | confusion matrix, IoU, precision, recall |
 | `evaluate_test.py`, `evaluate.py` | evaluation on the test set / on any folder |
 | `visualize.py`, `scripts/plot_training.py` | prediction grids and training curves |
+| `publish_hf.py` | export (safetensors + ONNX) and upload of the model and the demo to the Hugging Face Hub |
+| `hf/model_card.md`, `hf/space/` | model card and browser demo (static HTML + ONNX Runtime Web) |
 
 ## Limitations and next steps
 
@@ -122,6 +142,15 @@ The code uses an NVIDIA GPU, Apple GPU (MPS) or CPU, whichever is available.
 
 ![Encoder levels](docs/encoder_levels.png)
 
-## Credits
+## Credits and licenses
 
-Dataset: **AI4Mars**, by NASA JPL and the Zooniverse community labelers. Check the dataset page for its license and citation terms.
+- **Code and trained weights:** [MIT](LICENSE).
+- **Dataset:** [AI4Mars v0.6](https://doi.org/10.5281/zenodo.15995036) by R. Swan, M. Ono, D. Atha et al. (NASA JPL) and the
+  Zooniverse volunteer labelers, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+  The dataset is not redistributed here, except the four unmodified example images in `hf/space/examples/`.
+  Paper: R. M. Swan et al., *AI4Mars: A Dataset for Terrain-Aware Autonomous Driving on Mars*, CVPR Workshops 2021,
+  [doi:10.1109/CVPRW53098.2021.00226](https://doi.org/10.1109/CVPRW53098.2021.00226).
+- **Pre-trained encoder:** ResNet34 ImageNet weights from torchvision (BSD-3-Clause), loaded through
+  [segmentation-models-pytorch](https://github.com/qubvel-org/segmentation_models.pytorch) (MIT).
+  ImageNet itself has non-commercial terms of access: check them before any commercial use of the model.
+- **Demo:** [ONNX Runtime Web](https://github.com/microsoft/onnxruntime) (MIT); fonts Space Grotesk and JetBrains Mono (SIL OFL 1.1) via Google Fonts.

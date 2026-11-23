@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mars Terrain Segmentation</title>
+<meta name="description" content="U-Net segmentation of Curiosity NavCam images into soil, bedrock, sand and big rock, running in the browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4eee8;
+    --surface: #fffaf5;
+    --ink: #231915;
+    --muted: #73635a;
+    --line: #e3d6cc;
+    --accent: #b9471f;
+    --accent-soft: #f3d9cc;
+    --shadow: 0 1px 2px rgb(60 30 15 / 6%), 0 8px 24px rgb(60 30 15 / 6%);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #120d0b;
+      --surface: #1b1412;
+      --ink: #f2e8e0;
+      --muted: #a7958a;
+      --line: #2e2420;
+      --accent: #ee7d4f;
+      --accent-soft: #3a2219;
+      --shadow: none;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #120d0b; --surface: #1b1412; --ink: #f2e8e0; --muted: #a7958a;
+    --line: #2e2420; --accent: #ee7d4f; --accent-soft: #3a2219; --shadow: none;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.55 "Space Grotesk", system-ui, sans-serif;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 16px 56px; }
+  .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+
+  header { margin-bottom: 28px; }
+  .eyebrow {
+    margin: 0 0 8px; color: var(--accent);
+    font: 500 12px/1 "JetBrains Mono", monospace; letter-spacing: .12em; text-transform: uppercase;
+  }
+  h1 { margin: 0 0 10px; font-size: clamp(28px, 5vw, 44px); line-height: 1.05; letter-spacing: -.02em; }
+  .lede { margin: 0; max-width: 62ch; color: var(--muted); }
+  .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .links a {
+    color: var(--ink); text-decoration: none; font-size: 14px;
+    border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; background: var(--surface);
+  }
+  .links a:hover { border-color: var(--accent); }
+
+  main { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 18px;
+  }
+  h2 { margin: 0 0 12px; font-size: 14px; font-weight: 500; color: var(--muted); }
+
+  .examples { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  @media (max-width: 860px) { .examples { grid-template-columns: repeat(4, 1fr); } }
+  @media (max-width: 460px) { .examples { grid-template-columns: repeat(2, 1fr); } }
+  .example {
+    all: unset; cursor: pointer; display: block; border-radius: 10px; overflow: hidden;
+    border: 2px solid transparent; background: var(--line); position: relative;
+  }
+  .example img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
+  .example span {
+    position: absolute; left: 6px; bottom: 6px; font-size: 12px; padding: 2px 7px; border-radius: 6px;
+    background: rgb(0 0 0 / 60%); color: #fff;
+  }
+  .example[aria-pressed="true"] { border-color: var(--accent); }
+  .example:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .example:disabled, .busy .example { cursor: progress; opacity: .6; }
+
+  .drop {
+    margin-top: 14px; display: grid; place-items: center; text-align: center; gap: 2px;
+    border: 1.5px dashed var(--line); border-radius: 10px; padding: 22px 12px; cursor: pointer;
+    color: var(--muted); font-size: 14px;
+  }
+  .drop strong { color: var(--ink); font-weight: 500; }
+  .drop.over, .drop:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .drop small { font-size: 12px; }
+  .note { margin: 14px 0 0; font-size: 12px; color: var(--muted); }
+
+  .status { display: flex; align-items: center; gap: 12px; min-height: 28px; margin-bottom: 12px; font-size: 13px; color: var(--muted); }
+  .bar { flex: 1; max-width: 240px; height: 4px; border-radius: 4px; background: var(--line); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s; }
+  .bar.indeterminate i { width: 30%; animation: slide 1.1s ease-in-out infinite; }
+  @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+  .status.error { color: var(--accent); }
+
+  .stage {
+    position: relative; border-radius: 10px; overflow: hidden; background: var(--bg);
+    aspect-ratio: 1; max-height: 62vh; width: 100%; display: grid; place-items: center;
+  }
+  .stage canvas { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .stage canvas[hidden] { display: none; }
+  .placeholder { color: var(--muted); font-size: 14px; padding: 24px; text-align: center; }
+
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 14px; }
+  .controls label { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  input[type="range"] { accent-color: var(--accent); width: 180px; }
+  .timing { margin-left: auto; font-size: 12px; color: var(--muted); }
+
+  .legend { list-style: none; padding: 0; margin: 16px 0 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 560px) { .legend { grid-template-columns: repeat(2, 1fr); } }
+  .legend li { font-size: 13px; }
+  .legend .name { display: flex; align-items: center; gap: 7px; }
+  .legend .sw { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+  .legend .pct { font: 500 20px/1.2 "JetBrains Mono", monospace; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .legend .track { height: 3px; border-radius: 3px; background: var(--line); margin-top: 6px; overflow: hidden; }
+  .legend .track i { display: block; height: 100%; width: 0; transition: width .3s; }
+
+  footer { margin-top: 28px; font-size: 13px; color: var(--muted); }
+  footer a { color: inherit; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">AI4Mars · Curiosity NavCam</p>
+    <h1>Mars terrain segmentation</h1>
+    <p class="lede">A U-Net with a ResNet34 encoder labels every pixel of a rover image as soil, bedrock, sand or big rock.
+      The model runs in your browser with ONNX Runtime Web, so your images are never uploaded.</p>
+    <nav class="links">
+      <a href="https://huggingface.co/ccristiann/mars-terrain-unet-resnet34" target="_blank" rel="noopener">🤗 Model card</a>
+      <a href="https://github.com/CCristiann/mars-terrain-segmentation" target="_blank" rel="noopener">GitHub code</a>
+      <a href="https://huggingface.co/ccristiann/mars-terrain-unet-resnet34#results-expert-labelled-test-set-322-images" target="_blank" rel="noopener">Test mIoU 0.81</a>
+    </nav>
+  </header>
+
+  <main id="app">
+    <section class="panel" aria-labelledby="pick">
+      <h2 id="pick">Pick an example</h2>
+      <div class="examples" id="examples"></div>
+      <label class="drop" id="drop">
+        <input type="file" accept="image/*" id="file" hidden>
+        <strong>Drop an image or browse</strong>
+        <small>Grayscale NavCam images work best</small>
+      </label>
+      <p class="note">Examples come from the expert-labelled AI4Mars test set, which was never used for training.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="result">
+      <h2 id="result" hidden>Result</h2>
+      <div class="status" id="status" role="status" aria-live="polite">
+        <span id="status-text">Loading model…</span>
+        <div class="bar indeterminate" id="bar"><i></i></div>
+      </div>
+      <div class="stage">
+        <canvas id="canvas" hidden></canvas>
+        <div class="placeholder" id="placeholder">The segmentation appears here.</div>
+      </div>
+      <div class="controls">
+        <label>Overlay <input type="range" id="alpha" min="0" max="1" step="0.05" value="0.5"></label>
+        <span class="timing mono" id="timing"></span>
+      </div>
+      <ul class="legend" id="legend"></ul>
+    </section>
+  </main>
+
+  <footer>
+    <p>The model was trained only on Curiosity NavCam images, so other cameras are out of distribution.
+      Rover hardware and sky are labelled too, even though they were ignored during training.</p>
+    <p>Example images: <a href="https://doi.org/10.5281/zenodo.15995036" target="_blank" rel="noopener">AI4Mars v0.6</a>
+      by R. Swan, M. Ono, D. Atha et al. (NASA JPL) and the Zooniverse volunteers,
+      <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, unmodified;
+      overlays are model predictions. Model and demo code: MIT.</p>
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/ort.webgpu.min.js"></script>
+<script>
+  // ?model=<url> loads another file, e.g. a local export for testing
+  const MODEL_URL = new URLSearchParams(location.search).get("model")
+    || "https://huggingface.co/ccristiann/mars-terrain-unet-resnet34/resolve/main/model.onnx";
+  const CACHE_NAME = "mars-terrain-model-v1";  // bump when model.onnx changes
+  const MAX_SIDE = 1024;  // larger uploads are downscaled first
+
+  const CLASSES = ["soil", "bedrock", "sand", "big rock"];
+  const PALETTE = [[181, 134, 84], [70, 130, 180], [240, 210, 90], [220, 50, 50]];  // as in visualize.py
+  const EXAMPLES = [
+    ["NLB_556756308EDR_F0651642NCAM00285M1", "Big rock"],
+    ["NLB_528892900EDR_F0581248NCAM00262M1", "Bedrock"],
+    ["NLB_541042107EDR_F0611086NCAM00385M1", "Sand"],
+    ["NLB_453777056EDR_F0320204NCAM00497M1", "Soil"],
+  ];
+
+  const $ = (id) => document.getElementById(id);
+  const canvas = $("canvas"), ctx = canvas.getContext("2d");
+  let session = null, provider = null, current = null, busy = false;
+
+  // ---------- UI setup ----------
+  for (const [name, label] of EXAMPLES) {
+    const b = document.createElement("button");
+    b.className = "example";
+    b.setAttribute("aria-pressed", "false");
+    // crossorigin: on HF the files redirect to a CDN; without CORS the canvas can't read the pixels
+    b.innerHTML = `<img src="examples/${name}.JPG" crossorigin="anonymous" alt="${label} example"><span>${label}</span>`;
+    b.onclick = (e) => { select(b); run(b.querySelector("img").src, e.isTrusted); };
+    $("examples").append(b);
+  }
+  $("legend").innerHTML = CLASSES.map((c, i) => `
+    <li><div class="name"><span class="sw" style="background:rgb(${PALETTE[i]})"></span>${c}</div>
+    <div class="pct" id="pct${i}">–</div><div class="track"><i id="bar${i}" style="background:rgb(${PALETTE[i]})"></i></div></li>`
+  ).join("");
+
+  function select(button) {
+    document.querySelectorAll(".example").forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
+  }
+  function setStatus(text, progress = null, error = false) {
+    $("status-text").textContent = text;
+    $("status").classList.toggle("error", error);
+    const bar = $("bar");
+    bar.hidden = progress === false;
+    bar.classList.toggle("indeterminate", progress === null);
+    if (typeof progress === "number") bar.firstElementChild.style.width = `${Math.round(progress * 100)}%`;
+  }
+
+  // ---------- model ----------
+  async function fetchModel() {
+    let cache = null;
+    try {
+      cache = await caches.open(CACHE_NAME);
+      const hit = await cache.match(MODEL_URL);
+      if (hit) return new Uint8Array(await hit.arrayBuffer());
+    } catch { cache = null; }  // Cache API unavailable (private mode, http): just download
+
+    const res = await fetch(MODEL_URL);
+    if (!res.ok) throw new Error(`model download failed (HTTP ${res.status})`);
+    const total = Number(res.headers.get("content-length")) || 0;
+    const reader = res.body.getReader();
+    const chunks = [];
+    let got = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      got += value.length;
+      const mb = (got / 1e6).toFixed(0);
+      setStatus(total ? `Downloading model… ${mb} / ${(total / 1e6).toFixed(0)} MB` : `Downloading model… ${mb} MB`,
+        total ? got / total : null);
+    }
+    const bytes = new Uint8Array(got);
+    let offset = 0;
+    for (const c of chunks) { bytes.set(c, offset); offset += c.length; }
+    try { await cache?.put(MODEL_URL, new Response(bytes)); } catch { /* quota: fine, no cache */ }
+    return bytes;
+  }
+
+  async function createSession(bytes, providers) {
+    // multithreaded WASM needs cross-origin isolation, which static hosts usually don't have
+    ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 1) : 1;
+    for (const p of providers) {
+      try {
+        session = await ort.InferenceSession.create(bytes, { executionProviders: [p] });
+        provider = p;
+        return;
+      } catch (e) { console.warn(`${p} backend unavailable`, e); }
+    }
+    throw new Error("no ONNX Runtime backend available in this browser");
+  }
+
+  let modelBytes = null;
+  async function loadModel() {
+    modelBytes = await fetchModel();
+    setStatus("Preparing model…");
+    await createSession(modelBytes, navigator.gpu ? ["webgpu", "wasm"] : ["wasm"]);
+  }
+
+  // ---------- inference ----------
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("could not read this image"));
+      img.src = src;
+    });
+  }
+
+  async function segment(rgb, w, h) {
+    const input = new ort.Tensor("uint8", rgb, [h, w, 3]);
+    try {
+      return (await session.run({ image: input })).classes.data;
+    } catch (e) {
+      if (provider !== "webgpu") throw e;
+      console.warn("WebGPU run failed, falling back to WASM", e);  // e.g. an unsupported op
+      await createSession(modelBytes, ["wasm"]);
+      return (await session.run({ image: input })).classes.data;
+    }
+  }
+
+  async function run(src, fromUser = true) {
+    if (!session || busy) return;
+    busy = true;
+    $("app").classList.add("busy");
+    // stacked layout: bring the result into view after a tap
+    if (fromUser && matchMedia("(max-width: 860px)").matches) {
+      $("status").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    try {
+      setStatus("Segmenting…");
+      const img = await loadImage(src);
+      const scale = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
+      if (w < 64 || h < 64) throw new Error("image too small (min 64×64 px)");
+
+      const tmp = document.createElement("canvas");
+      tmp.width = w; tmp.height = h;
+      const tctx = tmp.getContext("2d");
+      tctx.drawImage(img, 0, 0, w, h);
+      const rgba = tctx.getImageData(0, 0, w, h);
+      const rgb = new Uint8Array(w * h * 3);
+      for (let p = 0, i = 0, j = 0; p < w * h; p++, i += 4, j += 3) {
+        rgb[j] = rgba.data[i]; rgb[j + 1] = rgba.data[i + 1]; rgb[j + 2] = rgba.data[i + 2];
+      }
+
+      const t0 = performance.now();
+      const classes = await segment(rgb, w, h);
+      const ms = performance.now() - t0;
+
+      current = { rgba, classes, w, h };
+      render();
+      showShares(classes);
+      $("timing").textContent = `${w}×${h} · ${Math.round(ms)} ms · ${provider.toUpperCase()}`;
+      setStatus("Done — drag the slider to compare with the original.", false);
+    } catch (e) {
+      console.error(e);
+      setStatus(`Error: ${e.message}`, false, true);
+    } finally {
+      busy = false;
+      $("app").classList.remove("busy");
+    }
+  }
+
+  function render() {
+    if (!current) return;
+    const { rgba, classes, w, h } = current;
+    const a = Number($("alpha").value), b = 1 - a;
+    const out = new ImageData(w, h), s = rgba.data, d = out.data;
+    for (let p = 0, i = 0; p < classes.length; p++, i += 4) {
+      const c = PALETTE[classes[p]];
+      d[i] = s[i] * b + c[0] * a;
+      d[i + 1] = s[i + 1] * b + c[1] * a;
+      d[i + 2] = s[i + 2] * b + c[2] * a;
+      d[i + 3] = 255;
+    }
+    canvas.width = w; canvas.height = h;
+    ctx.putImageData(out, 0, 0);
+    canvas.hidden = false;
+    $("placeholder").hidden = true;
+  }
+
+  function showShares(classes) {
+    const counts = new Array(CLASSES.length).fill(0);
+    for (let p = 0; p < classes.length; p++) counts[classes[p]]++;
+    counts.forEach((n, i) => {
+      const pct = (100 * n) / classes.length;
+      $(`pct${i}`).textContent = `${pct.toFixed(1)}%`;
+      $(`bar${i}`).style.width = `${pct}%`;
+    });
+  }
+
+  // ---------- events ----------
+  $("alpha").addEventListener("input", render);
+  $("file").addEventListener("change", (e) => {
+    const f = e.target.files[0];
+    if (f) { select(null); run(URL.createObjectURL(f)); }
+    e.target.value = "";
+  });
+  const drop = $("drop");
+  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", (e) => {
+    e.preventDefault();
+    drop.classList.remove("over");
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith("image/")) { select(null); run(URL.createObjectURL(f)); }
+  });
+
+  loadModel()
+    .then(() => { setStatus("Model ready.", false); document.querySelector(".example").click(); })
+    .catch((e) => { console.error(e); setStatus(`Error: ${e.message}`, false, true); });
+</script>
+</body>
+</html>
